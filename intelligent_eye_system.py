@@ -2,9 +2,53 @@
 Main Intelligent Eye for the Blind system integration
 """
 
+import sys
+import os
 import time
 import threading
-import RPi.GPIO as GPIO
+
+# Check if running in virtual environment
+if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+    print("WARNING: Not running in a virtual environment!")
+    print("For best results, please run:")
+    print("  source venv/bin/activate")
+    print("  python intelligent_eye_system.py")
+    print()
+
+try:
+    import RPi.GPIO as GPIO
+except ImportError:
+    print("RPi.GPIO not available - running in simulation mode")
+    # Create a mock GPIO module for testing
+    class MockGPIO:
+        BCM = 'BCM'
+        OUT = 'OUT'
+        IN = 'IN'
+        HIGH = True
+        LOW = False
+        PUD_UP = 'PUD_UP'
+        
+        @staticmethod
+        def setmode(mode):
+            pass
+        
+        @staticmethod
+        def setup(pin, mode, pull_up_down=None):
+            pass
+        
+        @staticmethod
+        def output(pin, value):
+            pass
+        
+        @staticmethod
+        def input(pin):
+            return True
+        
+        @staticmethod
+        def cleanup():
+            pass
+    
+    GPIO = MockGPIO()
 from config import SYSTEM_CONFIG, GPIO_CONFIG
 from ultrasonic_sensor import UltrasonicSensor
 from vision_system import VisionSystem

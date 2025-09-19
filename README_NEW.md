@@ -132,6 +132,42 @@ If you prefer manual installation or the script fails:
    sudo reboot
    ```
 
+### Virtual Environment Management
+
+The system is designed to run in a Python virtual environment for better dependency management and isolation.
+
+**Creating Virtual Environment**:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Activating Virtual Environment**:
+```bash
+source venv/bin/activate
+```
+
+**Deactivating Virtual Environment**:
+```bash
+deactivate
+```
+
+**Checking Virtual Environment Status**:
+```bash
+# Check if virtual environment is active
+echo $VIRTUAL_ENV
+
+# Or run this Python command
+python3 -c "import sys; print('Virtual env active:', hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))"
+```
+
+**Comprehensive Setup Check**:
+```bash
+# Check if everything is properly configured
+python3 check_setup.py
+```
+
 ### Hardware Configuration
 
 **GPIO Pin Configuration** (edit `config.py` if needed):
@@ -153,7 +189,13 @@ If you prefer manual installation or the script fails:
 
 ### Basic Usage
 
-Run the complete system:
+**Option 1: Using the startup script (Recommended)**
+```bash
+# Run the complete system with automatic virtual environment activation
+./start_system.sh
+```
+
+**Option 2: Manual virtual environment activation**
 ```bash
 # Activate virtual environment
 source venv/bin/activate
@@ -164,47 +206,72 @@ python intelligent_eye_system.py
 
 ### Individual Component Testing
 
-Test ultrasonic sensor:
+**Option 1: Using the test runner script (Recommended)**
 ```bash
+# Run all tests
+./run_tests.sh
+
+# Run specific test
+./run_tests.sh ultrasonic
+./run_tests.sh vision
+./run_tests.sh audio
+./run_tests.sh integrated
+./run_tests.sh performance
+```
+
+**Option 2: Manual testing**
+```bash
+# Activate virtual environment first
+source venv/bin/activate
+
+# Then run tests
 python test_system.py ultrasonic
-```
-
-Test vision system:
-```bash
 python test_system.py vision
-```
-
-Test audio system:
-```bash
 python test_system.py audio
-```
-
-Test integrated system:
-```bash
 python test_system.py integrated
-```
-
-Run performance tests:
-```bash
 python test_system.py performance
 ```
 
 ### Proposal Validation
 
-Validate system against proposal requirements:
+**Option 1: Using the demo runner script (Recommended)**
 ```bash
+# Run validation
+./run_demo.sh validation
+```
+
+**Option 2: Manual validation**
+```bash
+# Activate virtual environment first
+source venv/bin/activate
+
+# Then run validation
 python proposal_validation.py
 ```
 
 ### Demonstration Scripts
 
-Run full demonstration:
+**Option 1: Using the demo runner script (Recommended)**
 ```bash
-python demo_presentation.py
+# Run full demonstration
+./run_demo.sh
+
+# Run specific demo components
+./run_demo.sh architecture
+./run_demo.sh components
+./run_demo.sh integrated
+./run_demo.sh modular
+./run_demo.sh performance
+./run_demo.sh battery
 ```
 
-Run specific demo components:
+**Option 2: Manual demo**
 ```bash
+# Activate virtual environment first
+source venv/bin/activate
+
+# Then run demos
+python demo_presentation.py
 python demo_presentation.py architecture
 python demo_presentation.py components
 python demo_presentation.py integrated
@@ -329,6 +396,12 @@ Edit `config.py` to customize:
    - Activate virtual environment: `source venv/bin/activate`
    - Install missing packages: `pip install -r requirements.txt`
    - Check Python version: `python3 --version`
+
+7. **Virtual environment issues**:
+   - Not in virtual environment: Run `source venv/bin/activate`
+   - Virtual environment not found: Run `python3 -m venv venv`
+   - Packages not found: Run `pip install -r requirements.txt`
+   - Wrong Python version: Use `python3` instead of `python`
 
 ### Debug Mode
 
