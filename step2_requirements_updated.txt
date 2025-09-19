@@ -1,0 +1,18 @@
+# Core dependencies for Intelligent Eye for the Blind
+opencv-python==4.8.1.78
+numpy==1.24.3
+pyttsx3==2.90
+RPi.GPIO==0.7.1
+Pillow==10.0.0
+matplotlib==3.7.2
+pygame==2.5.2
+psutil==5.9.5
+
+# Machine learning dependencies (install these separately if needed)
+# tensorflow==2.13.0
+# torch==2.0.1
+# torchvision==0.15.2
+# ultralytics==8.0.196
+
+# Optional dependencies
+# cvlib==0.2.7
