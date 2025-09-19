@@ -24,6 +24,8 @@ The Intelligent Eye for the Blind consists of two main components:
 - **Offline Processing**: All computations performed locally on Raspberry Pi
 - **Low Latency**: Target latency under 200ms
 - **Privacy Preserving**: No cloud dependency or data transmission
+- **Performance Monitoring**: Real-time metrics and validation
+- **Battery Management**: Intelligent power saving and monitoring
 
 ## System Requirements
 
@@ -44,30 +46,108 @@ The Intelligent Eye for the Blind consists of two main components:
 
 ## Installation
 
+### Quick Setup (Raspberry Pi)
+
 1. **Clone the repository**:
    ```bash
+   # Using HTTPS (recommended)
+   git clone https://github.com/BIMalaza/Intelligent_eye.git
+   cd Intelligent_eye
+   
+   # Or using SSH (if you have SSH keys set up)
    git clone git@github.com:BIMalaza/Intelligent_eye.git
-   cd intelligent-eye-blind
+   cd Intelligent_eye
    ```
 
-2. **Install dependencies**:
+2. **Run the automated installation script**:
    ```bash
+   chmod +x install.sh
+   ./install.sh
+   ```
+
+### Manual Installation
+
+If you prefer manual installation or the script fails:
+
+1. **Update system packages**:
+   ```bash
+   sudo apt update && sudo apt upgrade -y
+   ```
+
+2. **Install system dependencies**:
+   ```bash
+   sudo apt install -y python3-pip python3-venv python3-dev
+   sudo apt install -y libopencv-dev python3-opencv
+   sudo apt install -y espeak espeak-data libespeak1 libespeak-dev
+   sudo apt install -y portaudio19-dev python3-pyaudio
+   sudo apt install -y libatlas-base-dev libhdf5-dev libhdf5-serial-dev
+   sudo apt install -y libqtgui4 libqtwebkit4 libqt4-test python3-pyqt5
+   sudo apt install -y libjasper-dev libqt4-dev
+   sudo apt install -y libavcodec-dev libavformat-dev libswscale-dev
+   sudo apt install -y libv4l-dev libxvidcore-dev libx264-dev
+   sudo apt install -y libgtk2.0-dev libtbb2 libtbb-dev
+   sudo apt install -y libjpeg-dev libpng-dev libtiff-dev
+   sudo apt install -y libatlas-base-dev gfortran
+   sudo apt install -y git wget unzip
+   ```
+
+3. **Enable hardware interfaces**:
+   ```bash
+   # Enable camera interface
+   sudo raspi-config nonint do_camera 0
+   
+   # Enable I2C and SPI
+   sudo raspi-config nonint do_i2c 0
+   sudo raspi-config nonint do_spi 0
+   ```
+
+4. **Set up Python environment**:
+   ```bash
+   # Create virtual environment
+   python3 -m venv venv
+   source venv/bin/activate
+   
+   # Upgrade pip
+   pip install --upgrade pip
+   
+   # Install Python packages
    pip install -r requirements.txt
    ```
 
-3. **Download YOLO model**:
+5. **Download YOLO model**:
    ```bash
-   wget https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt
-   mkdir models
-   mv yolov8n.pt models/
+   mkdir -p models
+   cd models
+   wget -O yolov8n.pt https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt
+   cd ..
    ```
 
-4. **Configure GPIO pins** (edit `config.py` if needed):
-   - Ultrasonic Trigger: GPIO 18
-   - Ultrasonic Echo: GPIO 24
-   - Status LED: GPIO 25
-   - Power Button: GPIO 23
-   - Buzzer: GPIO 12
+6. **Set up GPIO permissions**:
+   ```bash
+   sudo usermod -a -G gpio $USER
+   sudo usermod -a -G i2c $USER
+   sudo usermod -a -G spi $USER
+   
+   # Reboot to apply changes
+   sudo reboot
+   ```
+
+### Hardware Configuration
+
+**GPIO Pin Configuration** (edit `config.py` if needed):
+- Ultrasonic Trigger: GPIO 18
+- Ultrasonic Echo: GPIO 24
+- Status LED: GPIO 25
+- Power Button: GPIO 23
+- Buzzer: GPIO 12
+
+**Hardware Connections**:
+- Connect HC-SR04 ultrasonic sensor to GPIO pins 18 (trigger) and 24 (echo)
+- Connect LED to GPIO pin 25 (with appropriate resistor)
+- Connect push button to GPIO pin 23 (with pull-up resistor)
+- Connect buzzer to GPIO pin 12
+- Connect Pi Camera to camera port
+- Connect speaker/headphones to audio jack
 
 ## Usage
 
@@ -75,6 +155,10 @@ The Intelligent Eye for the Blind consists of two main components:
 
 Run the complete system:
 ```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run the complete system
 python intelligent_eye_system.py
 ```
 
@@ -183,38 +267,6 @@ Edit `config.py` to customize:
 - **Power Save Mode**: Automatic activation at low battery
 - **Offline Processing**: 100% local processing, no cloud dependency
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Camera not detected**:
-   - Enable camera interface: `sudo raspi-config`
-   - Check camera connection
-   - Verify camera permissions
-
-2. **Ultrasonic sensor not working**:
-   - Check GPIO connections
-   - Verify sensor power supply
-   - Test with multimeter
-
-3. **Audio not playing**:
-   - Check speaker/headphone connection
-   - Verify audio output settings
-   - Test with `aplay` command
-
-4. **High latency**:
-   - Reduce camera resolution
-   - Lower processing FPS
-   - Close unnecessary processes
-
-### Debug Mode
-
-Enable debug logging:
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
 ## New Features & Enhancements
 
 ### Performance Monitoring
@@ -243,6 +295,57 @@ logging.basicConfig(level=logging.DEBUG)
 - Runtime module toggling
 - Power save mode per module
 - Flexible configuration options
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Camera not detected**:
+   - Enable camera interface: `sudo raspi-config`
+   - Check camera connection
+   - Verify camera permissions
+
+2. **Ultrasonic sensor not working**:
+   - Check GPIO connections
+   - Verify sensor power supply
+   - Test with multimeter
+
+3. **Audio not playing**:
+   - Check speaker/headphone connection
+   - Verify audio output settings
+   - Test with `aplay` command
+
+4. **High latency**:
+   - Reduce camera resolution
+   - Lower processing FPS
+   - Close unnecessary processes
+
+5. **Permission denied errors**:
+   - Ensure user is in GPIO group: `sudo usermod -a -G gpio $USER`
+   - Reboot after adding to groups
+   - Check file permissions
+
+6. **Import errors**:
+   - Activate virtual environment: `source venv/bin/activate`
+   - Install missing packages: `pip install -r requirements.txt`
+   - Check Python version: `python3 --version`
+
+### Debug Mode
+
+Enable debug logging:
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+### Performance Issues
+
+If the system is running slowly:
+1. Check CPU usage: `htop`
+2. Monitor memory: `free -h`
+3. Reduce camera resolution in `config.py`
+4. Enable power save mode
+5. Close unnecessary applications
 
 ## Future Enhancements
 
@@ -277,9 +380,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Contact
 
 For questions, suggestions, or support, please contact:
-- Project Lead: [Your Name]
-- Email: [your.email@example.com]
-- GitHub: [your-github-username]
+- Project Lead: Katlego Phalane
+- Student ID: 213642871
+- Institution: Tshwane University of Technology
+- Course: ADYE20 - Project Design Technical Design
 
 ---
 

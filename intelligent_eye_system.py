@@ -9,12 +9,16 @@ from config import SYSTEM_CONFIG, GPIO_CONFIG
 from ultrasonic_sensor import UltrasonicSensor
 from vision_system import VisionSystem
 from audio_system import AudioSystem
+from performance_monitor import PerformanceMonitor, PerformanceContext
+from battery_monitor import BatteryMonitor
 
 class IntelligentEyeSystem:
     def __init__(self):
         self.ultrasonic_sensor = None
         self.vision_system = None
         self.audio_system = None
+        self.performance_monitor = None
+        self.battery_monitor = None
         
         # System state
         self.is_running = False
@@ -45,6 +49,11 @@ class IntelligentEyeSystem:
             self.ultrasonic_sensor = UltrasonicSensor()
             self.vision_system = VisionSystem()
             self.audio_system = AudioSystem()
+            self.performance_monitor = PerformanceMonitor()
+            self.battery_monitor = BatteryMonitor()
+            
+            # Set up battery monitoring callbacks
+            self.battery_monitor.add_callback(self._battery_callback)
             
             print("All components initialized successfully")
             
@@ -66,6 +75,10 @@ class IntelligentEyeSystem:
             
             # Start status LED
             GPIO.output(GPIO_CONFIG['led_status'], GPIO.HIGH)
+            
+            # Start performance and battery monitoring
+            self.performance_monitor.start_monitoring()
+            self.battery_monitor.start_monitoring()
             
             # Announce system ready
             self.audio_system.system_ready()
@@ -96,6 +109,13 @@ class IntelligentEyeSystem:
         # Stop status LED
         GPIO.output(GPIO_CONFIG['led_status'], GPIO.LOW)
         
+        # Stop monitoring systems
+        if self.performance_monitor:
+            self.performance_monitor.stop_monitoring()
+        
+        if self.battery_monitor:
+            self.battery_monitor.stop_monitoring()
+        
         # Stop subsystems
         if self.ultrasonic_sensor:
             self.ultrasonic_sensor.stop_monitoring()
@@ -115,20 +135,16 @@ class IntelligentEyeSystem:
         if not self.is_running:
             return
         
-        # Measure latency
-        detection_time = time.time()
-        
-        # Announce obstacle
-        self.audio_system.announce_obstacle(distance)
-        
-        # Play warning beep
-        self.audio_system.play_beep(frequency=800, duration=0.2)
-        
-        # Update statistics
-        self.detection_count += 1
-        if self.start_time:
-            latency = (detection_time - self.start_time) * 1000
-            self.latency_measurements.append(latency)
+        # Measure latency with performance monitoring
+        with PerformanceContext(self.performance_monitor, "obstacle"):
+            # Announce obstacle
+            self.audio_system.announce_obstacle(distance)
+            
+            # Play warning beep
+            self.audio_system.play_beep(frequency=800, duration=0.2)
+            
+            # Update statistics
+            self.detection_count += 1
     
     def _vision_processing_loop(self):
         """
@@ -136,12 +152,18 @@ class IntelligentEyeSystem:
         """
         while self.is_running and self.hat_enabled:
             try:
+                # Get power save settings based on battery level
+                power_settings = self.battery_monitor.get_power_save_settings()
+                
                 frame = self.vision_system.capture_frame()
                 if frame is not None:
-                    results = self.vision_system.process_frame(frame)
-                    self._process_vision_results(results)
+                    with PerformanceContext(self.performance_monitor, "object"):
+                        results = self.vision_system.process_frame(frame)
+                        self._process_vision_results(results)
                 
-                time.sleep(1.0 / SYSTEM_CONFIG['processing_fps'])
+                # Use power save FPS if in power save mode
+                fps = power_settings['fps']
+                time.sleep(1.0 / fps)
                 
             except Exception as e:
                 print(f"Error in vision processing: {e}")
@@ -188,6 +210,20 @@ class IntelligentEyeSystem:
         
         return estimated_distance
     
+    def _battery_callback(self, level_type, battery_level):
+        """
+        Callback for battery level changes
+        """
+        if level_type == 'critical':
+            self.audio_system.speak("Critical battery level, shutting down")
+            self.stop_system()
+        elif level_type == 'low':
+            self.audio_system.speak("Battery low, please recharge")
+        elif level_type == 'warning':
+            self.audio_system.speak("Battery warning")
+        
+        print(f"Battery {level_type}: {battery_level:.1f}%")
+    
     def _system_monitoring_loop(self):
         """
         Main system monitoring and control loop
@@ -199,8 +235,9 @@ class IntelligentEyeSystem:
                     print("Power button pressed - stopping system")
                     break
                 
-                # Monitor battery level (simplified)
-                self._monitor_battery()
+                # Update battery level from monitor
+                battery_info = self.battery_monitor.get_battery_info()
+                self.battery_level = battery_info['level']
                 
                 # Check system performance
                 self._check_performance()
@@ -214,25 +251,13 @@ class IntelligentEyeSystem:
                 print(f"Error in system monitoring: {e}")
                 time.sleep(1)
     
-    def _monitor_battery(self):
-        """
-        Monitor battery level and provide warnings
-        """
-        # Simplified battery monitoring (in real implementation, read from ADC)
-        if self.battery_level < 20 and self.battery_level > 15:
-            self.audio_system.battery_low()
-        elif self.battery_level < 10:
-            self.audio_system.speak("Critical battery level, shutting down")
-            self.stop_system()
-    
     def _check_performance(self):
         """
         Check system performance metrics
         """
-        if len(self.latency_measurements) > 10:
-            avg_latency = sum(self.latency_measurements[-10:]) / 10
-            if avg_latency > SYSTEM_CONFIG['max_latency_ms']:
-                print(f"Warning: High latency detected: {avg_latency:.1f}ms")
+        # Print performance report every 30 seconds
+        if self.detection_count > 0 and self.detection_count % 30 == 0:
+            self.performance_monitor.print_performance_report()
     
     def toggle_hat(self):
         """
@@ -261,14 +286,50 @@ class IntelligentEyeSystem:
         """
         Get current system status
         """
+        battery_info = self.battery_monitor.get_battery_info() if self.battery_monitor else {}
+        performance_summary = self.performance_monitor.get_performance_summary() if self.performance_monitor else {}
+        
         return {
             'running': self.is_running,
             'hat_enabled': self.hat_enabled,
             'belt_enabled': self.belt_enabled,
             'battery_level': self.battery_level,
+            'battery_info': battery_info,
             'detection_count': self.detection_count,
-            'uptime': time.time() - self.start_time if self.start_time else 0
+            'uptime': time.time() - self.start_time if self.start_time else 0,
+            'performance': performance_summary
         }
+    
+    def print_system_report(self):
+        """
+        Print comprehensive system report
+        """
+        print("\n" + "="*60)
+        print("INTELLIGENT EYE FOR THE BLIND - SYSTEM REPORT")
+        print("="*60)
+        
+        status = self.get_system_status()
+        
+        print(f"System Status: {'RUNNING' if status['running'] else 'STOPPED'}")
+        print(f"Smart Hat: {'ENABLED' if status['hat_enabled'] else 'DISABLED'}")
+        print(f"Smart Belt: {'ENABLED' if status['belt_enabled'] else 'DISABLED'}")
+        print(f"Total Detections: {status['detection_count']}")
+        print(f"Uptime: {status['uptime']:.1f} seconds")
+        
+        if self.battery_monitor:
+            self.battery_monitor.print_battery_status()
+        
+        if self.performance_monitor:
+            self.performance_monitor.print_performance_report()
+        
+        print("="*60)
+    
+    def save_performance_data(self, filename=None):
+        """
+        Save performance data to file
+        """
+        if self.performance_monitor:
+            self.performance_monitor.save_metrics_to_file(filename)
     
     def cleanup(self):
         """
@@ -284,6 +345,12 @@ class IntelligentEyeSystem:
         
         if self.audio_system:
             self.audio_system.cleanup()
+        
+        if self.performance_monitor:
+            self.performance_monitor.stop_monitoring()
+        
+        if self.battery_monitor:
+            self.battery_monitor.stop_monitoring()
         
         GPIO.cleanup()
         print("System cleanup completed")
